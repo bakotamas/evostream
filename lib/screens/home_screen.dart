@@ -4,6 +4,7 @@ import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:evostream/models/workout/workout.dart';
 import 'package:evostream/models/workout/workout_controller.dart';
+import 'package:evostream/models/workout/workout_editor_screen.dart';
 import 'package:evostream/models/workout/workout_part_widget.dart';
 import 'package:flutter/material.dart';
 
@@ -135,6 +136,24 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             SizedBox(height: 20),
+            Row(
+              spacing: 8,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) {
+                          return WorkoutEditorScreen();
+                        },
+                      ),
+                    );
+                  },
+                  child: Text("Reorderable"),
+                ),
+              ],
+            ),
             Row(
               spacing: 8,
               mainAxisAlignment: MainAxisAlignment.center,
