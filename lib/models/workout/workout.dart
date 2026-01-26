@@ -1,6 +1,9 @@
+import 'package:evostream/services/sound_service.dart';
+import 'package:flutter/material.dart';
+
 class Workout {
   final String name;
-  final WorkoutPartGroup parts;
+  final List<WorkoutPart> parts;
 
   const Workout({
     required this.name,
@@ -15,26 +18,41 @@ sealed class WorkoutPart {
 sealed class SimpleWorkoutPart extends WorkoutPart {
   final Duration? duration;
 
-  const SimpleWorkoutPart({
-    required this.duration,
-  });
+  const SimpleWorkoutPart([this.duration]);
+
+  String getName();
+  Color getColor();
+
+  void playSound() {
+    SoundService().startBeep();
+  }
 }
 
 class ConstantTimeInterval extends SimpleWorkoutPart {
   final Intensity intensity;
 
-  ConstantTimeInterval({
+  ConstantTimeInterval(
+    super.duration, {
     required this.intensity,
-    required super.duration,
   });
+
+  @override
+  String getName() {
+    return intensity.name;
+  }
+
+  @override
+  Color getColor() {
+    return intensity.getColor();
+  }
 }
 
 class VariableTimeInterval extends SimpleWorkoutPart {
   final List<ConstantTimeInterval> subIntervals;
 
-  VariableTimeInterval._({
+  VariableTimeInterval._(
+    Duration super.duration, {
     required this.subIntervals,
-    required super.duration,
   });
 
   factory VariableTimeInterval.proportional({
@@ -51,16 +69,16 @@ class VariableTimeInterval extends SimpleWorkoutPart {
       final intensity = part.$2;
 
       final subInterval = ConstantTimeInterval(
+        duration * (proportion / totalProportion),
         intensity: intensity,
-        duration: duration * (proportion / totalProportion),
       );
 
       subIntervals.add(subInterval);
     }
 
     return VariableTimeInterval._(
+      duration,
       subIntervals: subIntervals,
-      duration: duration,
     );
   }
 
@@ -70,51 +88,109 @@ class VariableTimeInterval extends SimpleWorkoutPart {
   }) {
     final List<ConstantTimeInterval> subIntervals = intensities.map((i) {
       return ConstantTimeInterval(
+        duration * (1 / intensities.length),
         intensity: i,
-        duration: duration * (1 / intensities.length),
       );
     }).toList();
 
     return VariableTimeInterval._(
+      duration,
       subIntervals: subIntervals,
-      duration: duration,
     );
+  }
+
+  @override
+  String getName() {
+    return subIntervals.map((e) => e.getName()).join(' + ');
+  }
+
+  @override
+  Color getColor() {
+    return subIntervals.first.getColor();
   }
 }
 
 class Rest extends SimpleWorkoutPart {
-  const Rest({
-    super.duration,
-  });
+  const Rest([super.duration]);
+
+  @override
+  Color getColor() {
+    return Colors.teal.shade300;
+  }
+
+  @override
+  String getName() {
+    return 'Rest';
+  }
+
+  @override
+  void playSound() {
+    SoundService().endBeep();
+  }
 }
 
 class Work extends SimpleWorkoutPart {
-  const Work({
-    super.duration,
-  });
+  const Work([super.duration]);
+
+  @override
+  Color getColor() {
+    return Colors.red.shade300;
+  }
+
+  @override
+  String getName() {
+    return 'Work';
+  }
+}
+
+class Prepare extends SimpleWorkoutPart {
+  const Prepare([super.duration]);
+
+  @override
+  Color getColor() {
+    return Colors.amber.shade300;
+  }
+
+  @override
+  String getName() {
+    return 'Prepare';
+  }
+
+  @override
+  void playSound() {}
+}
+
+class Finish extends SimpleWorkoutPart {
+  const Finish();
+
+  @override
+  Color getColor() {
+    return Colors.blue.shade300;
+  }
+
+  @override
+  String getName() {
+    return 'Finish';
+  }
+
+  @override
+  void playSound() {
+    SoundService().finishBeep();
+  }
 }
 
 class WorkoutPartGroup extends WorkoutPart {
-  final List<WorkoutPart> parts;
   final int repeat;
   final Rest? rest;
 
   const WorkoutPartGroup({
-    required this.parts,
     this.repeat = 1,
     this.rest,
   });
+}
 
-  List<WorkoutPart> expandedPartsForIteration(int iteration) {
-    if (rest == null || iteration >= repeat - 1) {
-      return parts;
-    }
-
-    return [
-      ...parts,
-      rest!,
-    ];
-  }
+class WorkoutPartGroupEnd extends WorkoutPart {
+  const WorkoutPartGroupEnd();
 }
 
 enum Intensity {
@@ -135,4 +211,9 @@ enum Intensity {
   pace5000,
   pace10000,
   pace20000,
+  ;
+
+  Color getColor() {
+    return Colors.black;
+  }
 }

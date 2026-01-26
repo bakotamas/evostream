@@ -1,27 +1,33 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:evostream/models/workout/workout.dart';
+import 'package:evostream/utils/integer_extension.dart';
+import 'package:evostream/utils/list_extension.dart';
+import 'package:evostream/utils/value_notifier_utils.dart';
 
 class WorkoutController {
   final Workout workout;
 
   WorkoutController({
     required this.workout,
-  }) {
-    stack.add(StackFrame(workout.parts));
-    current = getCurrentLeaf();
-  }
+  });
 
-  final List<StackFrame> stack = [];
-  SimpleWorkoutPart? current;
+  late final Duration workoutDuration = _getTotalDuration();
 
-  /// Időzítés
+  late SimpleWorkoutPart? current = _getCurrent();
+  List<StackFrame> groupStack = [];
+  int pointer = 0;
+
   Timer? timer;
   DateTime? lastTick;
   DateTime? start;
 
   Duration totalElapsed = Duration.zero;
   Duration currentElapsed = Duration.zero;
+
+  final tickNotifier = TickNotifier();
+  final stateNotifier = TickNotifier();
 
   bool running = false;
 
@@ -33,23 +39,36 @@ class WorkoutController {
 
     start ??= DateTime.now();
     timer ??= Timer.periodic(Duration(milliseconds: 100), tick);
+
+    stateNotifier.tick();
   }
 
   void pause() {
     running = false;
+
+    stateNotifier.tick();
   }
 
   void stop() {
     running = false;
     timer?.cancel();
     timer = null;
-    stack.clear();
-    stack.add(StackFrame(workout.parts));
-    current = getCurrentLeaf();
+    pointer = 0;
+    groupStack.clear();
+    current = _getCurrent();
     currentElapsed = Duration.zero;
     totalElapsed = Duration.zero;
     start = null;
     lastTick = null;
+
+    stateNotifier.tick();
+  }
+
+  void dispose() {
+    timer?.cancel();
+    timer = null;
+    tickNotifier.dispose();
+    stateNotifier.dispose();
   }
 
   void tick(_) {
@@ -63,338 +82,338 @@ class WorkoutController {
     }
     lastTick = now;
 
-    if (current?.duration != null && currentElapsed >= current!.duration!) {
+    Duration? remaining;
+    if (current?.duration != null) {
+      remaining = current!.duration! - currentElapsed;
+    }
+
+    if (remaining != null && remaining <= Duration.zero) {
       next();
     }
+
+    tickNotifier.tick();
+
+    if (remaining != null && remaining < 4.s) {}
   }
 
   void next() {
-    current = _moveNextLeaf();
+    _moveNext();
+    final current = _getCurrent();
+    if (current == null) {
+      stop();
+      return;
+    }
+    this.current = current;
     currentElapsed = Duration.zero;
+
+    stateNotifier.tick();
+
+    current.playSound();
   }
 
   void previous() {
-    current = _movePreviousLeaf();
+    _movePrevious();
+    final current = _getCurrent();
+    if (current == null) {
+      stop();
+      return;
+    }
+    this.current = current;
     currentElapsed = Duration.zero;
+
+    stateNotifier.tick();
+
+    current.playSound();
   }
 
-  void move(SimpleWorkoutPart leaf) {
-    current = _moveToLeaf(leaf);
-    currentElapsed = Duration.zero;
-  }
-
-  SimpleWorkoutPart? getCurrentLeaf() {
-    if (stack.isEmpty) return null;
-
-    final frame = stack.last;
-    final iterationParts = frame.group.expandedPartsForIteration(
-      frame.iterator,
-    );
-
-    WorkoutPart part = iterationParts[stack.last.pointer];
-
-    while (part is WorkoutPartGroup) {
-      stack.add(StackFrame(part));
-      part = part.parts[0];
+  void move(SimpleWorkoutPart part) {
+    final index = workout.parts.indexOf(part);
+    if (index == -1) {
+      stop();
+      return;
     }
-
-    return part as SimpleWorkoutPart;
-  }
-
-  bool _stepPointerNext() {
-    while (stack.isNotEmpty) {
-      final frame = stack.last;
-      final iterationParts = frame.group.expandedPartsForIteration(
-        frame.iterator,
-      );
-
-      if (frame.pointer + 1 < iterationParts.length) {
-        frame.pointer++;
-        return true;
+    groupStack.clear();
+    for (var i = 0; i < index; i++) {
+      final target = workout.parts[i];
+      if (target is WorkoutPartGroup) {
+        groupStack.add(StackFrame(target));
       }
-
-      if (frame.iterator + 1 < frame.group.repeat) {
-        frame.iterator++;
-        frame.pointer = 0;
-        return true;
-      }
-
-      stack.removeLast();
-    }
-
-    return false;
-  }
-
-  bool _stepPointerPrevious() {
-    while (stack.isNotEmpty) {
-      final frame = stack.last;
-
-      if (frame.pointer > 0) {
-        frame.pointer--;
-        return true;
-      }
-
-      if (frame.iterator > 0) {
-        final iterationParts = frame.group.expandedPartsForIteration(
-          frame.iterator - 1,
-        );
-        frame.iterator--;
-        frame.pointer = iterationParts.length - 1;
-        return true;
-      }
-
-      stack.removeLast();
-    }
-
-    return false;
-  }
-
-  bool _descendToLeaf({required bool forward}) {
-    while (stack.isNotEmpty) {
-      final frame = stack.last;
-      final iterationParts = frame.group.expandedPartsForIteration(
-        frame.iterator,
-      );
-
-      final part = iterationParts[frame.pointer];
-
-      if (part is SimpleWorkoutPart) {
-        return true;
-      }
-
-      if (part is WorkoutPartGroup && part.parts.isNotEmpty) {
-        final child = StackFrame(part);
-        if (!forward) {
-          child.iterator = part.repeat - 1;
-          final lastIterationParts = part.expandedPartsForIteration(
-            child.iterator,
-          );
-          child.pointer = lastIterationParts.length - 1;
+      if (target is WorkoutPartGroupEnd) {
+        if (groupStack.isEmpty) {
+          stop();
+          return;
         }
-        stack.add(child);
-        continue;
-      }
-
-      return false;
-    }
-
-    return false;
-  }
-
-  bool _descendToLeaf2() {
-    while (stack.isNotEmpty) {
-      final frame = stack.last;
-
-      final iterationParts = frame.group.expandedPartsForIteration(
-        frame.iterator,
-      );
-
-      // Pointer érvényesség ellenőrzés
-      if (frame.pointer < 0 || frame.pointer >= iterationParts.length) {
-        return false;
-      }
-
-      final part = iterationParts[frame.pointer];
-
-      // ✅ Leaf – kész vagyunk
-      if (part is SimpleWorkoutPart) {
-        return true;
-      }
-
-      // ✅ Group – belépünk
-      if (part is WorkoutPartGroup && part.parts.isNotEmpty) {
-        stack.add(StackFrame(part));
-        continue;
-      }
-
-      return false;
-    }
-
-    return false;
-  }
-
-  SimpleWorkoutPart? _moveNextLeaf() {
-    while (true) {
-      if (!_stepPointerNext()) {
-        return null;
-      }
-
-      if (_descendToLeaf(forward: true)) {
-        return getCurrentLeaf();
+        groupStack.removeLast();
       }
     }
+
+    pointer = index;
+    current = part;
+    currentElapsed = Duration.zero;
+
+    stateNotifier.tick();
   }
 
-  SimpleWorkoutPart? _movePreviousLeaf() {
-    while (true) {
-      if (!_stepPointerPrevious()) {
-        return null;
-      }
-
-      if (_descendToLeaf(forward: false)) {
-        return getCurrentLeaf();
-      }
-    }
-  }
-
-  int? _getCurrentIteration() {
-    if (stack.isNotEmpty) {
-      return stack.last.iterator;
-    } else {
+  SimpleWorkoutPart? _getCurrent() {
+    if (pointer >= workout.parts.length) {
       return null;
     }
-  }
 
-  bool iterateNext() {
-    if (stack.isEmpty) return false;
+    final part = workout.parts.tryGet(pointer);
 
-    final frame = stack.last;
-
-    if (frame.iterator + 1 < frame.group.repeat) {
-      frame.iterator++;
-      return true;
-    }
-
-    return false;
-  }
-
-  bool iteratePrevious() {
-    if (stack.isEmpty) return false;
-
-    final frame = stack.last;
-
-    if (frame.iterator > 0) {
-      frame.iterator--;
-      return true;
-    }
-
-    return false;
-  }
-
-  SimpleWorkoutPart? _moveToLeaf(SimpleWorkoutPart target) {
-    print('_moveToLeaf');
-    final dfsStack = <StackFrame>[];
-
-    dfsStack.add(StackFrame(workout.parts));
-
-    while (dfsStack.isNotEmpty) {
-      print(
-        '${dfsStack.length} - ${dfsStack.last.iterator}, ${dfsStack.last.pointer}',
-      );
-      final frame = dfsStack.last;
-      final iterationParts = frame.group.expandedPartsForIteration(
-        frame.iterator,
-      );
-
-      if (frame.pointer >= iterationParts.length) {
-        dfsStack.removeLast();
-        continue;
-      }
-
-      final part = iterationParts[frame.pointer];
-
-      if (part is SimpleWorkoutPart) {
-        if (part == target) {
-          stack
-            ..clear()
-            ..addAll(dfsStack);
-          return part;
-        }
-
-        frame.pointer++;
-      } else if (part is WorkoutPartGroup) {
-        dfsStack.add(StackFrame(part));
-      }
+    if (part is SimpleWorkoutPart) {
+      return part;
     }
 
     return null;
   }
 
-  /// ====================== UI HELPER ======================
+  void _moveNext() {
+    int? maxAllowedPointer;
+    pointer++;
+    for (var i = pointer; i < workout.parts.length; i++) {
+      if (maxAllowedPointer != null && i >= maxAllowedPointer) {
+        stop();
+        return;
+      }
 
-  /// Path jelzése a stack alapján (Set / Repeat / Interval)
+      final target = workout.parts.tryGet(i);
+
+      if (target == null) {
+        stop();
+        return;
+      }
+
+      switch (target) {
+        case SimpleWorkoutPart part:
+          maxAllowedPointer = null;
+          current = part;
+          pointer = i;
+          return;
+        case WorkoutPartGroup group:
+          groupStack.add(StackFrame(group));
+        case WorkoutPartGroupEnd _:
+          if (groupStack.isEmpty) {
+            stop();
+            return;
+          }
+          final frame = groupStack.last;
+          if (frame.iterator >= frame.group.repeat - 1) {
+            groupStack.removeLast();
+          } else {
+            maxAllowedPointer = i;
+            groupStack.last.iterator++;
+            i = workout.parts.indexOf(frame.group);
+          }
+      }
+    }
+  }
+
+  void _movePrevious() {
+    int? minAllowedPointer;
+    pointer--;
+    for (var i = pointer; i >= 0; i--) {
+      if (minAllowedPointer != null && i <= minAllowedPointer) {
+        stop();
+        return;
+      }
+
+      final target = workout.parts.tryGet(i);
+
+      if (target == null) {
+        stop();
+        return;
+      }
+
+      switch (target) {
+        case SimpleWorkoutPart part:
+          current = part;
+          pointer = i;
+          return;
+        case WorkoutPartGroup _:
+          if (groupStack.isEmpty) {
+            stop();
+            return;
+          }
+          final frame = groupStack.last;
+          if (frame.iterator > 0) {
+            minAllowedPointer = i;
+            groupStack.last.iterator--;
+            i = _findGroupEndIndex(i);
+          } else {
+            groupStack.removeLast();
+          }
+        case WorkoutPartGroupEnd _:
+          final maybeGroup = workout.parts.tryGet(_findGroupIndex(i));
+          if (maybeGroup case WorkoutPartGroup group) {
+            groupStack.add(
+              StackFrame(
+                group,
+                iterator: group.repeat - 1,
+              ),
+            );
+          } else {
+            stop();
+            return;
+          }
+      }
+    }
+  }
+
+  int _findGroupEndIndex(int index) {
+    int counter = 0;
+    for (var i = index + 1; i < workout.parts.length; i++) {
+      final target = workout.parts.tryGet(i);
+
+      if (target == null) {
+        return -1;
+      }
+
+      if (target is WorkoutPartGroup) {
+        counter++;
+      }
+
+      if (target is WorkoutPartGroupEnd) {
+        if (counter > 0) {
+          counter--;
+        } else {
+          return i;
+        }
+      }
+    }
+
+    return -1;
+  }
+
+  int _findGroupIndex(int index) {
+    int counter = 0;
+    for (var i = index - 1; i >= 0; i--) {
+      final target = workout.parts.tryGet(i);
+
+      if (target == null) {
+        return -1;
+      }
+
+      if (target is WorkoutPartGroup) {
+        if (counter > 0) {
+          counter--;
+        } else {
+          return i;
+        }
+      }
+
+      if (target is WorkoutPartGroupEnd) {
+        counter++;
+      }
+    }
+
+    return -1;
+  }
+
+  void nextRound(
+    WorkoutPartGroup group, {
+    bool reset = false,
+  }) {
+    _iterateNext(group, reset);
+    if (reset) {
+      pointer = workout.parts.indexOf(group);
+      next();
+    }
+
+    stateNotifier.tick();
+  }
+
+  void previousRound(
+    WorkoutPartGroup group, {
+    bool reset = false,
+  }) {
+    _iteratePrevious(group, reset);
+    if (reset) {
+      pointer = workout.parts.indexOf(group);
+      next();
+    }
+
+    stateNotifier.tick();
+  }
+
+  void _iterateNext(
+    WorkoutPartGroup group,
+    bool reset,
+  ) {
+    final frame = groupStack.firstWhereOrNull(
+      (f) => f.group == group,
+    );
+
+    if (frame == null || frame.iterator >= group.repeat - 1) {
+      return;
+    }
+
+    frame.iterator++;
+    final stackIndex = groupStack.indexOf(frame);
+    if (reset) {
+      groupStack.removeRange(stackIndex + 1, groupStack.length);
+    }
+  }
+
+  void _iteratePrevious(
+    WorkoutPartGroup group,
+    bool reset,
+  ) {
+    final frame = groupStack.firstWhereOrNull(
+      (f) => f.group == group,
+    );
+
+    if (frame == null || frame.iterator <= 0) {
+      return;
+    }
+
+    frame.iterator--;
+    final stackIndex = groupStack.indexOf(frame);
+    if (reset) {
+      groupStack.removeRange(stackIndex + 1, groupStack.length);
+    }
+  }
+
+  Duration _getTotalDuration() {
+    Duration total = Duration.zero;
+    List<int> multiplierStack = [];
+    for (var i = 0; i < workout.parts.length; i++) {
+      final target = workout.parts[i];
+
+      switch (target) {
+        case SimpleWorkoutPart part:
+          int multiplier = multiplierStack.lastOrNull ?? 1;
+          total += (part.duration ?? Duration.zero) * multiplier;
+        case WorkoutPartGroup group:
+          multiplierStack.add(group.repeat);
+          total += (group.rest?.duration ?? Duration.zero) * (group.repeat - 1);
+        case WorkoutPartGroupEnd _:
+          multiplierStack.removeLast();
+      }
+    }
+    return total;
+  }
+
   double get progress {
-    if (current?.duration == null || current!.duration!.inSeconds == 0) {
+    if (current?.duration == null || current!.duration!.inMilliseconds == 0) {
       return 0;
     }
-    return currentElapsed.inSeconds / current!.duration!.inSeconds;
+    return currentElapsed.inMilliseconds / current!.duration!.inMilliseconds;
   }
 
   String get path {
-    return stack
+    return groupStack
         .map((f) => "Set ${f.iterator + 1}/${f.group.repeat}")
-        .join(" / ");
+        .join(" > ");
   }
 }
 
 class StackFrame {
   final WorkoutPartGroup group;
-  int pointer;
   int iterator;
 
   StackFrame(
     this.group, {
-    this.pointer = 0,
     this.iterator = 0,
   });
 }
-
-
-  // SimpleWorkoutPart? _getNextLeaf() {
-  //   while (stack.isNotEmpty) {
-  //     final frame = stack.last;
-
-  //     if (frame.pointer >= frame.group.parts.length) {
-  //       if (frame.iterator >= frame.group.repeat - 1) {
-  //         stack.removeLast();
-  //         continue;
-  //       } else {
-  //         frame.iterator++;
-  //         frame.pointer = 0;
-  //       }
-  //     }
-
-  //     final part = frame.group.parts[frame.pointer];
-  //     frame.pointer++;
-
-  //     switch (part) {
-  //       case SimpleWorkoutPart():
-  //         return part;
-  //       case WorkoutPartGroup():
-  //         stack.add(StackFrame(part));
-  //         continue;
-  //     }
-  //   }
-  //   return null;
-  // }
-
-  // SimpleWorkoutPart? _getPreviousLeaf() {
-  //   while (stack.isNotEmpty) {
-  //     final frame = stack.last;
-  //     print(
-  //       'pointer: ${frame.pointer}, iterator: ${frame.iterator}, stack: ${stack.length}, group: ${frame.group}',
-  //     );
-
-  //     if (frame.pointer <= 0) {
-  //       if (frame.iterator <= 0) {
-  //         stack.removeLast();
-  //         continue;
-  //       } else {
-  //         frame.iterator--;
-  //       }
-  //       frame.pointer = frame.group.parts.length - 1;
-  //     }
-
-  //     final part = frame.group.parts[frame.pointer];
-  //     frame.pointer--;
-
-  //     switch (part) {
-  //       case SimpleWorkoutPart():
-  //         return part;
-  //       case WorkoutPartGroup():
-  //         stack.add(StackFrame(part));
-  //         continue;
-  //     }
-  //   }
-  //   return null;
-  // }

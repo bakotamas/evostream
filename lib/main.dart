@@ -13,6 +13,11 @@ class MainApp extends StatelessWidget {
     return  MaterialApp(
       debugShowCheckedModeBanner: false,
       home: HomeScreen(),
+      theme: ThemeData(
+        progressIndicatorTheme: ProgressIndicatorThemeData(
+          year2023: false,
+        )
+      ),
     );
   }
 }
