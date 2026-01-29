@@ -18,7 +18,7 @@ class TreeLinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = color ?? Colors.grey.shade700
+      ..color = color ?? Colors.grey.shade500
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;

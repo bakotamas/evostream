@@ -13,6 +13,7 @@ dependencies:
   material_color_utilities: ^0.11.1
   sqflite_common_ffi: ^2.4.0+2
   flutter_soloud: ^3.4.9
+  wakelock_plus: ^1.4.0
 
 dev_dependencies:
   flutter_test:

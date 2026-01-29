@@ -98,7 +98,7 @@ class SoundService {
     }
   }
 
-  Future tick() async {
+  Future beep() async {
     await _playTone(frequency: 1000, durationMs: 200);
   }
 

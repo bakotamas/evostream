@@ -107,7 +107,7 @@ class _SimpleWorkoutPartWidgetState extends State<SimpleWorkoutPartWidget> {
       },
       child: Container(
         height: 48,
-        color: isActive ? Colors.grey.shade800 : null,
+        color: isActive ? Colors.white12 : null,
         child: Row(
           crossAxisAlignment: .stretch,
           children: [
@@ -241,7 +241,8 @@ class _WorkoutPartGroupWidgetState extends State<WorkoutPartGroupWidget> {
                       Center(
                         child: CircleBox(
                           size: 16,
-                          color: Colors.grey.shade800,
+                          borderColor: Colors.white54,
+                          borderWidth: 4,
                         ),
                       ),
                     ],

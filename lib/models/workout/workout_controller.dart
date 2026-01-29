@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:collection/collection.dart';
 import 'package:evostream/models/workout/workout.dart';
-import 'package:evostream/utils/integer_extension.dart';
+import 'package:evostream/services/sound_service.dart';
 import 'package:evostream/utils/list_extension.dart';
 import 'package:evostream/utils/value_notifier_utils.dart';
 
@@ -38,7 +38,7 @@ class WorkoutController {
     lastTick = DateTime.now();
 
     start ??= DateTime.now();
-    timer ??= Timer.periodic(Duration(milliseconds: 100), tick);
+    timer ??= Timer.periodic(Duration(milliseconds: 40), tick);
 
     stateNotifier.tick();
   }
@@ -71,6 +71,7 @@ class WorkoutController {
     stateNotifier.dispose();
   }
 
+  int? lastBeepSecond;
   void tick(_) {
     if (!running) return;
 
@@ -87,13 +88,21 @@ class WorkoutController {
       remaining = current!.duration! - currentElapsed;
     }
 
-    if (remaining != null && remaining <= Duration.zero) {
-      next();
+    if (remaining != null) {
+      if (remaining <= Duration.zero) {
+        next();
+      }
+
+      final secondsLeft = remaining.inSeconds;
+      if (secondsLeft <= 2 && secondsLeft >= 0) {
+        if (lastBeepSecond != secondsLeft) {
+          lastBeepSecond = secondsLeft;
+          SoundService().beep();
+        }
+      }
     }
 
     tickNotifier.tick();
-
-    if (remaining != null && remaining < 4.s) {}
   }
 
   void next() {
@@ -108,6 +117,7 @@ class WorkoutController {
 
     stateNotifier.tick();
 
+    lastBeepSecond = null;
     current.playSound();
   }
 
@@ -123,6 +133,7 @@ class WorkoutController {
 
     stateNotifier.tick();
 
+    lastBeepSecond = null;
     current.playSound();
   }
 
@@ -152,6 +163,9 @@ class WorkoutController {
     currentElapsed = Duration.zero;
 
     stateNotifier.tick();
+
+    lastBeepSecond = null;
+    current?.playSound();
   }
 
   SimpleWorkoutPart? _getCurrent() {
