@@ -12,7 +12,6 @@ import 'package:evostream/utils/integer_extension.dart';
 import 'package:evostream/utils/list_extension.dart';
 import 'package:evostream/utils/text_style_extension.dart';
 import 'package:flutter/material.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({
@@ -33,7 +32,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   @override
   void initState() {
     super.initState();
-    WakelockPlus.enable();
+    // WakelockPlus.enable();
     controller = WorkoutController(
       workout: widget.workout,
     );
@@ -44,7 +43,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   @override
   dispose() {
-    WakelockPlus.disable();
+    // WakelockPlus.disable();
     controller.dispose();
     super.dispose();
   }

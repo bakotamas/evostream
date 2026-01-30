@@ -1,4 +1,4 @@
-package com.example.evostream
+package hu.bjmokk.evostream
 
 import io.flutter.embedding.android.FlutterActivity
 

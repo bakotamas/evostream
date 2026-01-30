@@ -14,10 +14,12 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'EvoStream',
+
       navigatorKey: nKey,
       debugShowCheckedModeBanner: false,
       home: const HomeScreen(),
       theme: ThemeData(
+        fontFamily: 'Poppins',
         progressIndicatorTheme: const ProgressIndicatorThemeData(
           year2023: false,
         ),

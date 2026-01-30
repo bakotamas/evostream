@@ -76,8 +76,13 @@ class Rest extends SimpleWorkoutPart {
     Duration? duration,
     bool? onlyBetweenRounds,
   }) {
+    duration = switch (duration) {
+      Duration.zero => null,
+      null => this.duration,
+      _ => duration,
+    };
     return Rest._(
-      duration ?? this.duration,
+      duration,
       onlyBetweenRounds ?? this.onlyBetweenRounds,
     );
   }
@@ -100,7 +105,12 @@ class Work extends SimpleWorkoutPart {
   Work copyWith({
     Duration? duration,
   }) {
-    return Work(duration ?? this.duration);
+    duration = switch (duration) {
+      Duration.zero => null,
+      null => this.duration,
+      _ => duration,
+    };
+    return Work(duration);
   }
 }
 
@@ -124,7 +134,12 @@ class Prepare extends SimpleWorkoutPart {
   Prepare copyWith({
     Duration? duration,
   }) {
-    return Prepare(duration ?? this.duration);
+    duration = switch (duration) {
+      Duration.zero => null,
+      null => this.duration,
+      _ => duration,
+    };
+    return Prepare(duration);
   }
 }
 
@@ -150,7 +165,12 @@ class Finish extends SimpleWorkoutPart {
   Finish copyWith({
     Duration? duration,
   }) {
-    return Finish(duration ?? this.duration);
+    duration = switch (duration) {
+      Duration.zero => null,
+      null => this.duration,
+      _ => duration,
+    };
+    return Finish(duration);
   }
 }
 

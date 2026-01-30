@@ -102,9 +102,9 @@ class SimpleSlot extends Slot {
                     DurationPicker(
                       color: c,
                       initialDuration: part.duration,
-                      onChanged: (duration) {
+                      onChanged: (duration, indeterminate) {
                         content.value = part.copyWith(
-                          duration: duration,
+                          duration: indeterminate ? Duration.zero : duration,
                         );
                       },
                     ),
@@ -545,7 +545,7 @@ Future<WorkoutPart?> addNewSlot(BuildContext context) async {
 
 class DurationPicker extends StatefulWidget {
   final Duration? initialDuration;
-  final ValueChanged<Duration>? onChanged;
+  final Function(Duration, bool)? onChanged;
   final Color color;
 
   const DurationPicker({
@@ -620,13 +620,15 @@ class _DurationPickerState extends State<DurationPicker> {
       _syncControllers();
     }
 
-    widget.onChanged?.call(_duration);
+    widget.onChanged?.call(_duration, _indeterminate);
   }
 
   void _updateIndeterminate(final bool indeterminate) {
     setState(() {
       _indeterminate = indeterminate;
     });
+
+    widget.onChanged?.call(_duration, _indeterminate);
   }
 
   void _fromTextFields() {
@@ -682,32 +684,33 @@ class _DurationPickerState extends State<DurationPicker> {
                 ),
                 width: 30,
                 height: 24,
-                child: AnimatedOpacity(
-                  duration: 300.ms,
-                  opacity: _indeterminate ? 0 : 1,
-                  child: TextField(
-                    focusNode: _minutesFocus,
-                    controller: _minutesController,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(2),
-                    ],
-                    textAlign: .center,
-                    textAlignVertical: .center,
-                    style: DefText.n.bold.tabular.c(
-                      textColor,
+                child: Stack(
+                  alignment: .center,
+                  children: [
+                    AnimatedOpacity(
+                      duration: 300.ms,
+                      opacity: _indeterminate ? 0 : 1,
+                      child: TextField(
+                        focusNode: _minutesFocus,
+                        controller: _minutesController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(2),
+                        ],
+                        textAlign: .center,
+                        textAlignVertical: .center,
+                        style: DefText.n.bold.tabular.c(
+                          textColor,
+                        ),
+                        decoration: _inputDeco,
+                      ),
                     ),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: .only(bottom: 15),
-                      floatingLabelBehavior: FloatingLabelBehavior.never,
-                    ),
-                  ),
+                  ],
                 ),
               ),
               Padding(
-                padding: const .symmetric(horizontal: 1),
+                padding: const .fromLTRB(1,0,1,3),
                 child: Text(
                   ':',
                   style: DefText.n.bold.c(textColor),
@@ -736,11 +739,7 @@ class _DurationPickerState extends State<DurationPicker> {
                     style: DefText.n.bold.tabular.c(
                       textColor,
                     ),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: .only(bottom: 15),
-                      floatingLabelBehavior: FloatingLabelBehavior.never,
-                    ),
+                    decoration: _inputDeco,
                   ),
                 ),
               ),
@@ -900,15 +899,11 @@ class _RepeatPickerState extends State<RepeatPicker> {
                   style: DefText.n.bold.tabular.c(
                     textColor,
                   ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: .only(bottom: 15),
-                    floatingLabelBehavior: FloatingLabelBehavior.never,
-                  ),
+                  decoration: _inputDeco,
                 ),
               ),
               Padding(
-                padding: const .fromLTRB(0, 0, 6, 0),
+                padding: const .fromLTRB(0, 0, 6, 1),
                 child: Text(
                   'x',
                   style: DefText.n.bold.c(textColor),
@@ -937,3 +932,22 @@ class _RepeatPickerState extends State<RepeatPicker> {
     super.dispose();
   }
 }
+
+const _inputDeco = InputDecoration(
+  border: _inputBorder,
+  errorBorder: _inputBorder,
+  focusedBorder: _inputBorder,
+  focusedErrorBorder: _inputBorder,
+  enabledBorder: _inputBorder,
+  disabledBorder: _inputBorder,
+  contentPadding: EdgeInsets.zero,
+  // floatingLabelBehavior: FloatingLabelBehavior.never,
+);
+
+const _inputBorder = OutlineInputBorder(
+  borderSide: BorderSide(
+    color: Colors.transparent,
+    style: BorderStyle.none,
+    width: 0,
+  ),
+);
