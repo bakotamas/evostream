@@ -98,8 +98,7 @@ class _SimpleWorkoutPartWidgetState extends State<SimpleWorkoutPartWidget> {
     List<TreeLineType> treeLineTypes = List.generate(
       widget.indent,
       (_) => TreeLineType.line,
-    );
-    treeLineTypes.add(widget.treeLineType);
+    )..add(widget.treeLineType);
 
     return InkWell(
       onTap: () {
@@ -133,7 +132,7 @@ class _SimpleWorkoutPartWidgetState extends State<SimpleWorkoutPartWidget> {
                     ),
                   ),
                   Container(
-                    padding: EdgeInsets.symmetric(
+                    padding: const .symmetric(
                       horizontal: 8,
                       vertical: 2,
                     ),
@@ -142,7 +141,7 @@ class _SimpleWorkoutPartWidgetState extends State<SimpleWorkoutPartWidget> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      part.duration?.formatSecondsOrMs() ?? '?',
+                      part.duration?.formatSecondsOrMs() ?? '∞',
                       style: DefText.n.semiBold.c(Colors.white),
                     ),
                   ),
@@ -210,8 +209,7 @@ class _WorkoutPartGroupWidgetState extends State<WorkoutPartGroupWidget> {
     List<TreeLineType> treeLineTypes = List.generate(
       widget.indent,
       (_) => TreeLineType.line,
-    );
-    treeLineTypes.add(widget.treeLineType);
+    )..add(widget.treeLineType);
 
     return SizedBox(
       height: 48,
@@ -238,7 +236,7 @@ class _WorkoutPartGroupWidgetState extends State<WorkoutPartGroupWidget> {
                       CustomPaint(
                         painter: TreeLinePainter(type: .groupNode),
                       ),
-                      Center(
+                      const Center(
                         child: CircleBox(
                           size: 16,
                           borderColor: Colors.white54,
@@ -256,7 +254,7 @@ class _WorkoutPartGroupWidgetState extends State<WorkoutPartGroupWidget> {
                 ),
                 if (currentIteration != null)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const .symmetric(horizontal: 8),
                     child: Row(
                       children: [
                         DefButton.icon(
@@ -314,6 +312,6 @@ class WorkoutPartGroupEndWidget extends WorkoutPartWidget {
 class _WorkoutPartGroupEndWidgetState extends State<WorkoutPartGroupEndWidget> {
   @override
   Widget build(BuildContext context) {
-    return SizedBox();
+    return const SizedBox();
   }
 }

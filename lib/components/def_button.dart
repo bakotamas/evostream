@@ -251,7 +251,7 @@ class _DefButtonState extends State<DefButton> {
       iconWidget = SizedBox.square(
         dimension: iconSize,
         child: Padding(
-          padding: const EdgeInsets.all(2),
+          padding: const .all(2),
           child: CircularProgressIndicator(
             strokeAlign: BorderSide.strokeAlignInside,
             strokeWidth: 2,
@@ -274,8 +274,8 @@ class _DefButtonState extends State<DefButton> {
     if (widget.label != null) {
       textWidget = Padding(
         padding: widget.column
-            ? const EdgeInsets.only(top: 6)
-            : EdgeInsets.symmetric(horizontal: textPadding),
+            ? const .only(top: 6)
+            : .symmetric(horizontal: textPadding),
         child: Text(
           widget.label!,
           style: DefText.n.fw(6).fs(textSize).c(foregroundColor).ellipsis,
@@ -288,7 +288,7 @@ class _DefButtonState extends State<DefButton> {
     Widget subtitleWidget = const SizedBox();
     if (widget.subtitle != null) {
       subtitleWidget = Padding(
-        padding: const EdgeInsets.only(top: 2),
+        padding: const .only(top: 2),
         child: Text(
           widget.subtitle ?? '',
           style: DefText.s.fs(10).c(foregroundColor).ellipsis,
@@ -371,8 +371,8 @@ class _DefButtonState extends State<DefButton> {
                   widget.child ??
                   Padding(
                     padding: widget.label == null
-                        ? EdgeInsets.zero
-                        : EdgeInsets.symmetric(
+                        ? .zero
+                        : .symmetric(
                             horizontal: buttonPadding,
                           ),
                     child: child,

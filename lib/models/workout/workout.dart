@@ -15,6 +15,7 @@ class Workout {
 sealed class WorkoutPart {
   const WorkoutPart();
   WorkoutPart copyWith();
+  String getName();
 }
 
 sealed class SimpleWorkoutPart extends WorkoutPart {
@@ -22,7 +23,6 @@ sealed class SimpleWorkoutPart extends WorkoutPart {
 
   const SimpleWorkoutPart([this.duration]);
 
-  String getName();
   Color getColor();
 
   void playSound() {
@@ -172,6 +172,11 @@ class WorkoutPartGroup extends WorkoutPart {
   }
 
   @override
+  String getName() {
+    return 'Group';
+  }
+
+  @override
   WorkoutPartGroup copyWith({
     int? repeat,
     Rest? rest,
@@ -189,6 +194,11 @@ class WorkoutPartGroupEnd extends WorkoutPart {
   @override
   String toString() {
     return runtimeType.toString();
+  }
+
+  @override
+  String getName() {
+    return 'Group end';
   }
 
   @override

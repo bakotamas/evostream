@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:evostream/models/workout/workout.dart';
 import 'package:evostream/services/sound_service.dart';
+import 'package:evostream/utils/integer_extension.dart';
 import 'package:evostream/utils/list_extension.dart';
 import 'package:evostream/utils/value_notifier_utils.dart';
 
@@ -38,7 +39,7 @@ class WorkoutController {
     lastTick = DateTime.now();
 
     start ??= DateTime.now();
-    timer ??= Timer.periodic(Duration(milliseconds: 40), tick);
+    timer ??= Timer.periodic(40.ms, tick);
 
     stateNotifier.tick();
   }
@@ -417,8 +418,8 @@ class WorkoutController {
 
   String get path {
     return groupStack
-        .map((f) => "Set ${f.iterator + 1}/${f.group.repeat}")
-        .join(" > ");
+        .map((f) => 'Set ${f.iterator + 1}/${f.group.repeat}')
+        .join(' > ');
   }
 }
 

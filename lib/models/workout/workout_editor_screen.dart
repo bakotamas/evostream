@@ -1,8 +1,8 @@
-import 'dart:developer';
-
+import 'package:evostream/components/circle_box.dart';
 import 'package:evostream/components/def_button.dart';
 import 'package:evostream/components/fade_hide.dart';
 import 'package:evostream/models/workout/workout.dart';
+import 'package:evostream/models/workout/workout_screen.dart';
 import 'package:evostream/utils/color_extension.dart';
 import 'package:evostream/utils/global_utils.dart';
 import 'package:evostream/utils/integer_extension.dart';
@@ -10,89 +10,107 @@ import 'package:evostream/utils/text_style_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-sealed class _Slot extends StatelessWidget {
+sealed class Slot extends StatelessWidget {
   final Key slotKey;
   final ValueNotifier<WorkoutPart> content;
+  final bool freezed;
 
-  const _Slot({
+  const Slot({
     required this.slotKey,
     required this.content,
+    this.freezed = false,
+    super.key,
   });
 
   List<WorkoutPart> reportChildren();
 
-  factory _Slot.fromWorkoutPart(WorkoutPart part) {
+  factory Slot.fromWorkoutPart(
+    WorkoutPart part, {
+    bool freezed = false,
+  }) {
     if (part is SimpleWorkoutPart) {
-      return _SimpleSlot(
+      return SimpleSlot(
         slotKey: UniqueKey(),
         content: ValueNotifier(part),
       );
     }
     if (part is WorkoutPartGroup) {
-      return _GroupSlot(
+      return GroupSlot(
         slotKey: UniqueKey(),
         content: ValueNotifier(part),
-        children: [],
+        freezed: freezed,
+        children: List.empty(growable: true),
       );
     }
     throw Exception('Wrong part type: ${part.runtimeType}');
   }
 }
 
-class _SimpleSlot extends _Slot {
-  const _SimpleSlot({
+class SimpleSlot extends Slot {
+  const SimpleSlot({
     required super.slotKey,
     required super.content,
+    super.freezed = false,
+    super.key,
   });
 
   @override
   Widget build(BuildContext context) {
     final part = content.value as SimpleWorkoutPart;
+    final c = part.getColor();
     return SizedBox(
       height: 70,
       child: Row(
         crossAxisAlignment: .stretch,
         children: [
+          if (freezed) const SizedBox(width: 4),
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const .symmetric(vertical: 8),
             child: Container(
               width: 4,
               decoration: BoxDecoration(
                 borderRadius: DefRadius.circular,
-                color: part.getColor(),
+                color: c,
               ),
             ),
           ),
           Expanded(
-            child: Column(
-              crossAxisAlignment: .start,
-              children: [
-                Expanded(
-                  child: Align(
-                    alignment: .centerLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        part.getName().toUpperCase(),
-                        style: DefText.n.black.c(
-                          part.getColor().withLightness(30),
+            child: Padding(
+              padding: const .all(4),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: DefRadius.standard,
+                  color: c.withLightness(90),
+                ),
+                child: Column(
+                  crossAxisAlignment: .start,
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: .centerLeft,
+                        child: Padding(
+                          padding: const .symmetric(horizontal: 8),
+                          child: Text(
+                            part.getName().toUpperCase(),
+                            style: DefText.n.black.c(
+                              c.withLightness(30),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                    DurationPicker(
+                      color: c,
+                      initialDuration: part.duration,
+                      onChanged: (duration) {
+                        content.value = part.copyWith(
+                          duration: duration,
+                        );
+                      },
+                    ),
+                  ],
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: DurationPicker(
-                    initialDuration: part.duration,
-                    onChanged: (duration) {
-                      content.value = part.copyWith(
-                        duration: duration,
-                      );
-                    },
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ],
@@ -106,20 +124,23 @@ class _SimpleSlot extends _Slot {
   }
 }
 
-class _GroupSlot extends _Slot {
-  const _GroupSlot({
+class GroupSlot extends Slot {
+  const GroupSlot({
     required super.slotKey,
     required super.content,
-    this.children = const [],
+    required this.children,
+    super.freezed = false,
+    super.key,
   });
 
-  final List<_Slot> children;
+  final List<Slot> children;
 
   @override
   Widget build(BuildContext context) {
+    final group = content.value as WorkoutPartGroup;
     return StatefulBuilder(
       builder: (context, setState) {
-        return Container(
+        return DecoratedBox(
           decoration: BoxDecoration(
             border: Border.all(
               color: Colors.grey.shade400,
@@ -132,32 +153,50 @@ class _GroupSlot extends _Slot {
             children: [
               Container(
                 alignment: .centerLeft,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const .symmetric(horizontal: 8, vertical: 4),
                 child: Text(
                   'Group'.toUpperCase(),
                   style: DefText.n.extraBold.c(Colors.grey.shade700),
                 ),
               ),
-              ReorderableSlotList(
-                children: children,
+              Padding(
+                padding: const .only(right: 2),
+                child: ReorderableSlotList(
+                  freezed: freezed,
+                  children: children,
+                ),
               ),
               Padding(
-                padding: const EdgeInsets.all(4),
-                child: DefButton.tonal(
-                  size: .small,
-                  label: 'Add',
-                  icon: Icons.add,
-                  onPressed: () async {
-                    WorkoutPart? part = await addNewSlot(context);
-                    if (part == null) {
-                      return;
-                    }
-                    setState(() {
-                      children.add(
-                        _Slot.fromWorkoutPart(part),
-                      );
-                    });
-                  },
+                padding: const .all(8),
+                child: Row(
+                  children: [
+                    if (!freezed)
+                      DefButton.tonal(
+                        size: .small,
+                        label: 'Add',
+                        icon: Icons.add,
+                        onPressed: () async {
+                          WorkoutPart? part = await addNewSlot(context);
+                          if (part == null) {
+                            return;
+                          }
+                          setState(() {
+                            children.add(
+                              Slot.fromWorkoutPart(part),
+                            );
+                          });
+                        },
+                      ),
+                    const Spacer(),
+                    RepeatPicker(
+                      initialRepeat: group.repeat,
+                      onChanged: (repeat) {
+                        content.value = group.copyWith(
+                          repeat: repeat,
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -172,17 +211,20 @@ class _GroupSlot extends _Slot {
     return [
       content.value,
       ...children.expand((element) => element.reportChildren()),
-      WorkoutPartGroupEnd(),
+      const WorkoutPartGroupEnd(),
     ];
   }
 }
 
 class ReorderableSlotList extends StatefulWidget {
   const ReorderableSlotList({
-    super.key,
     required this.children,
+    this.freezed = false,
+    super.key,
   });
-  final List<_Slot> children;
+
+  final bool freezed;
+  final List<Slot> children;
 
   @override
   State<ReorderableSlotList> createState() => _ReorderableSlotListState();
@@ -197,26 +239,57 @@ class _ReorderableSlotListState extends State<ReorderableSlotList> {
       physics: const NeverScrollableScrollPhysics(),
       itemBuilder: (context, index) {
         final child = widget.children[index];
+        final buttonColor = switch (child) {
+          SimpleSlot simpleSlot =>
+            (simpleSlot.content.value as SimpleWorkoutPart)
+                .getColor()
+                .withLightness(20),
+          GroupSlot _ => Colors.grey.shade700,
+        };
         return Container(
-          // decoration: BoxDecoration(border: Border.all(color: Colors.grey)),
           key: child.slotKey,
-          child: Row(
-            crossAxisAlignment: .start,
+          child: Stack(
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                child: ReorderableDragStartListener(
-                  key: ValueKey(child.slotKey),
-                  index: index,
-                  child: Icon(
-                    Icons.drag_indicator,
-                    size: 20,
+              Row(
+                crossAxisAlignment: .start,
+                children: [
+                  if (!widget.freezed)
+                    Padding(
+                      padding: const .symmetric(vertical: 6),
+                      child: ReorderableDragStartListener(
+                        key: ValueKey(child.slotKey),
+                        index: index,
+                        child: const Icon(
+                          Icons.drag_indicator,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  Expanded(
+                    child: child,
+                  ),
+                ],
+              ),
+              if (!widget.freezed)
+                Align(
+                  alignment: .topRight,
+                  child: Padding(
+                    padding: .only(
+                      right: child is SimpleSlot ? 4 : 8,
+                      top: child is SimpleSlot ? 4 : 0,
+                    ),
+                    child: DefButton.icon(
+                      icon: Icons.close,
+                      size: .small,
+                      onPressed: () {
+                        setState(() {
+                          widget.children.removeAt(index);
+                        });
+                      },
+                      color: buttonColor,
+                    ),
                   ),
                 ),
-              ),
-              Expanded(
-                child: child,
-              ),
             ],
           ),
         );
@@ -235,77 +308,163 @@ class _ReorderableSlotListState extends State<ReorderableSlotList> {
   }
 }
 
-class WorkoutEditorScreen extends StatefulWidget {
-  const WorkoutEditorScreen({super.key});
+class WorkoutEditorWidget extends StatefulWidget {
+  const WorkoutEditorWidget({
+    this.slotsPreset,
+    super.key,
+  });
+
+  final List<Slot>? slotsPreset;
 
   @override
-  State<WorkoutEditorScreen> createState() => _WorkoutEditorScreenState();
+  State<WorkoutEditorWidget> createState() => _WorkoutEditorWidgetState();
 }
 
-class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
-  final List<_Slot> slots = [];
+class _WorkoutEditorWidgetState extends State<WorkoutEditorWidget> {
+  late final List<Slot> slots = widget.slotsPreset ?? [];
+  late final bool freezed = widget.slotsPreset != null;
+
+  final ValueNotifier<WorkoutPart> prepareNotifier = ValueNotifier(
+    Prepare(5.s),
+  );
+  final ValueNotifier<WorkoutPart> finishNotifier = ValueNotifier(
+    const Finish(),
+  );
+
+  final Key prepareKey = UniqueKey();
+  final Key finishKey = UniqueKey();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
+    Widget list = Column(
+      children: [
+        if (!freezed)
+          Row(
+            crossAxisAlignment: .start,
             children: [
-              Row(
-                spacing: 8,
-                children: [
-                  DefButton.flat(
-                    onPressed: save,
-                    label: 'Save',
+              const Padding(
+                padding: .symmetric(
+                  vertical: 6,
+                ),
+                child: Opacity(
+                  opacity: .2,
+                  child: Icon(
+                    Icons.drag_indicator,
+                    size: 20,
                   ),
-                  DefButton.flat(
-                    onPressed: () async {
-                      WorkoutPart? part = await addNewSlot(context);
-                      if (part == null) {
-                        return;
-                      }
-                      setState(() {
-                        slots.add(
-                          _Slot.fromWorkoutPart(part),
-                        );
-                      });
-                    },
-                    label: 'New',
-                  ),
-                  DefButton.flat(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    label: 'Cancel',
-                  ),
-                ],
+                ),
               ),
               Expanded(
-                child: ReorderableSlotList(
-                  children: slots,
+                child: SimpleSlot(
+                  slotKey: prepareKey,
+                  content: prepareNotifier,
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(4),
-                child: DefButton.tonal(
-                  size: .small,
-                  label: 'Add',
-                  icon: Icons.add,
-                  onPressed: () async {
-                  WorkoutPart? part = await addNewSlot(context);
-                  if (part == null) {
-                    return;
-                  }
-                  setState(() {
-                    slots.add(
-                      _Slot.fromWorkoutPart(part),
-                    );
-                  });
-                },
+            ],
+          ),
+        ReorderableSlotList(
+          freezed: freezed,
+          children: slots,
+        ),
+        if (!freezed)
+          Padding(
+            padding: const .all(16),
+            child: DefButton.tonal(
+              size: .small,
+              label: 'Add',
+              icon: Icons.add,
+              onPressed: () async {
+                WorkoutPart? part = await addNewSlot(context);
+                if (part == null) {
+                  return;
+                }
+                setState(() {
+                  slots.add(
+                    Slot.fromWorkoutPart(part),
+                  );
+                });
+              },
+            ),
+          ),
+        if (!freezed)
+          Row(
+            crossAxisAlignment: .start,
+            children: [
+              const Padding(
+                padding: .symmetric(
+                  vertical: 6,
+                ),
+                child: Opacity(
+                  opacity: .2,
+                  child: Icon(
+                    Icons.drag_indicator,
+                    size: 20,
+                  ),
                 ),
               ),
+              Expanded(
+                child: SimpleSlot(
+                  slotKey: finishKey,
+                  content: finishNotifier,
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+    Widget controls = Padding(
+      padding: const .all(8),
+      child: Row(
+        mainAxisAlignment: .spaceBetween,
+        children: [
+          if (!freezed) ...[
+            DefButton.flat(
+              onPressed: Navigator.of(context).pop,
+              label: 'Cancel',
+            ),
+          ],
+          const Spacer(),
+          DefButton(
+            onPressed: start,
+            label: 'Start',
+          ),
+        ],
+      ),
+    );
+
+    if (freezed) {
+      return Column(
+        children: [
+          list,
+          controls,
+        ],
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: Center(
+          child: DefButton.icon(
+            icon: Icons.arrow_back,
+            onPressed: Navigator.of(context).pop,
+          ),
+        ),
+        title: Text(
+          'New workout',
+          style: DefText.m,
+        ),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const .all(4),
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  child: list,
+                ),
+              ),
+              controls,
             ],
           ),
         ),
@@ -313,27 +472,25 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
     );
   }
 
-  void save() {
-    final workout = buildWorkoutFromSlots(
+  void start() {
+    final workout = Workout(
       name: 'New Workout',
-      slots: slots.expand((e) => e.reportChildren()).toList(),
+      parts: [
+        if (!freezed) prepareNotifier.value,
+        ...slots.expand((e) => e.reportChildren()),
+        if (!freezed) finishNotifier.value,
+      ],
     );
 
-    inspect(workout);
-    Navigator.of(context).pop(workout);
-  }
-
-  Workout? buildWorkoutFromSlots({
-    required String name,
-    required List<WorkoutPart> slots,
-  }) {
-    return Workout(
-      name: name,
-      parts: [
-        Prepare(5.s),
-        ...slots,
-        Finish(),
-      ],
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) {
+          return WorkoutScreen(
+            workout: workout,
+          );
+        },
+      ),
     );
   }
 }
@@ -342,42 +499,44 @@ Future<WorkoutPart?> addNewSlot(BuildContext context) async {
   return await showModalBottomSheet(
     context: context,
     builder: (context) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
+      return Material(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Add new element',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-
-            ListTile(
-              title: const Text('Rest'),
-              onTap: () {
-                Navigator.pop(
-                  context,
-                  Rest(90.s),
-                );
-              },
-            ),
-            ListTile(
-              title: const Text('Work'),
-              onTap: () {
-                Navigator.pop(
-                  context,
-                  Work(90.s),
-                );
-              },
-            ),
-            ListTile(
-              title: const Text('Group'),
-              onTap: () {
-                Navigator.pop(context, WorkoutPartGroup());
-              },
-            ),
-          ],
+          children:
+              [
+                Rest(90.s),
+                Work(90.s),
+                const WorkoutPartGroup(),
+              ].map(
+                (e) {
+                  final color = switch (e) {
+                    SimpleWorkoutPart part => part.getColor(),
+                    _ => Colors.grey,
+                  };
+                  return ListTile(
+                    contentPadding: const .symmetric(horizontal: 8),
+                    title: Text(e.getName()),
+                    leading: SizedBox.square(
+                      dimension: 36,
+                      child: Center(
+                        child: CircleBox(
+                          size: 18,
+                          color: color.withLightness(90),
+                          child: Center(
+                            child: CircleBox(
+                              size: 12,
+                              color: color,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context, e);
+                    },
+                  );
+                },
+              ).toList(),
         ),
       );
     },
@@ -387,11 +546,13 @@ Future<WorkoutPart?> addNewSlot(BuildContext context) async {
 class DurationPicker extends StatefulWidget {
   final Duration? initialDuration;
   final ValueChanged<Duration>? onChanged;
+  final Color color;
 
   const DurationPicker({
-    super.key,
+    required this.color,
     this.initialDuration,
     this.onChanged,
+    super.key,
   });
 
   @override
@@ -400,7 +561,7 @@ class DurationPicker extends StatefulWidget {
 
 class _DurationPickerState extends State<DurationPicker> {
   late Duration _duration;
-  bool indeterminate = false;
+  late bool _indeterminate = widget.initialDuration == null;
 
   final _minutesController = TextEditingController();
   final _secondsController = TextEditingController();
@@ -411,7 +572,7 @@ class _DurationPickerState extends State<DurationPicker> {
   @override
   void initState() {
     super.initState();
-    _duration = widget.initialDuration ?? Duration.zero;
+    _duration = widget.initialDuration ?? 5.s;
     _syncControllers();
 
     _minutesFocus.addListener(_handleBlur);
@@ -464,7 +625,7 @@ class _DurationPickerState extends State<DurationPicker> {
 
   void _updateIndeterminate(final bool indeterminate) {
     setState(() {
-      this.indeterminate = indeterminate;
+      _indeterminate = indeterminate;
     });
   }
 
@@ -493,12 +654,15 @@ class _DurationPickerState extends State<DurationPicker> {
 
   @override
   Widget build(BuildContext context) {
+    Color textColor = widget.color.withLightness(20);
+    Color filedColor = widget.color.withLightness(80);
+
     return Row(
       mainAxisAlignment: .spaceBetween,
       spacing: 4,
       children: [
         Disabled(
-          disabled: indeterminate,
+          disabled: _indeterminate,
           child: Row(
             children: [
               DefButton.icon(
@@ -509,56 +673,74 @@ class _DurationPickerState extends State<DurationPicker> {
                     _duration - const Duration(seconds: 10),
                   );
                 },
+                color: textColor,
               ),
               Container(
                 decoration: BoxDecoration(
                   borderRadius: DefRadius.standard,
-                  color: Colors.grey.shade200,
+                  color: filedColor,
                 ),
                 width: 30,
                 height: 24,
-                child: TextField(
-                  focusNode: _minutesFocus,
-                  controller: _minutesController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(2),
-                  ],
-                  textAlign: TextAlign.center,
-                  style: DefText.n.bold,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.only(bottom: 20),
-                    floatingLabelBehavior: FloatingLabelBehavior.never,
+                child: AnimatedOpacity(
+                  duration: 300.ms,
+                  opacity: _indeterminate ? 0 : 1,
+                  child: TextField(
+                    focusNode: _minutesFocus,
+                    controller: _minutesController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(2),
+                    ],
+                    textAlign: .center,
+                    textAlignVertical: .center,
+                    style: DefText.n.bold.tabular.c(
+                      textColor,
+                    ),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      contentPadding: .only(bottom: 15),
+                      floatingLabelBehavior: FloatingLabelBehavior.never,
+                    ),
                   ),
                 ),
               ),
-              Text(
-                ':',
-                style: DefText.n.bold,
+              Padding(
+                padding: const .symmetric(horizontal: 1),
+                child: Text(
+                  ':',
+                  style: DefText.n.bold.c(textColor),
+                ),
               ),
               Container(
                 decoration: BoxDecoration(
                   borderRadius: DefRadius.standard,
-                  color: Colors.grey.shade200,
+                  color: filedColor,
                 ),
                 width: 30,
                 height: 24,
-                child: TextField(
-                  focusNode: _secondsFocus,
-                  controller: _secondsController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(2),
-                  ],
-                  textAlign: TextAlign.center,
-                  style: DefText.n.bold,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.only(bottom: 20),
-                    floatingLabelBehavior: FloatingLabelBehavior.never,
+                child: AnimatedOpacity(
+                  duration: 300.ms,
+                  opacity: _indeterminate ? 0 : 1,
+                  child: TextField(
+                    focusNode: _secondsFocus,
+                    controller: _secondsController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(2),
+                    ],
+                    textAlign: .center,
+                    textAlignVertical: .center,
+                    style: DefText.n.bold.tabular.c(
+                      textColor,
+                    ),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      contentPadding: .only(bottom: 15),
+                      floatingLabelBehavior: FloatingLabelBehavior.never,
+                    ),
                   ),
                 ),
               ),
@@ -570,17 +752,19 @@ class _DurationPickerState extends State<DurationPicker> {
                     _duration + const Duration(seconds: 10),
                   );
                 },
+                color: textColor,
               ),
             ],
           ),
         ),
         DefButton.icon(
           size: .small,
-          type: indeterminate ? .outlined : .flat,
+          type: _indeterminate ? .outlined : .flat,
           icon: Icons.all_inclusive,
           onPressed: () {
-            _updateIndeterminate(!indeterminate);
+            _updateIndeterminate(!_indeterminate);
           },
+          color: textColor,
         ),
       ],
     );
@@ -592,6 +776,164 @@ class _DurationPickerState extends State<DurationPicker> {
     _secondsController.dispose();
     _minutesFocus.dispose();
     _secondsFocus.dispose();
+    super.dispose();
+  }
+}
+
+class RepeatPicker extends StatefulWidget {
+  final int? initialRepeat;
+  final ValueChanged<int>? onChanged;
+
+  const RepeatPicker({
+    super.key,
+    this.initialRepeat,
+    this.onChanged,
+  });
+
+  @override
+  State<RepeatPicker> createState() => _RepeatPickerState();
+}
+
+class _RepeatPickerState extends State<RepeatPicker> {
+  late int _repeat;
+
+  final _repeatController = TextEditingController();
+  final _repeatFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _repeat = widget.initialRepeat ?? 1;
+    _syncControllers();
+
+    _repeatFocus.addListener(_handleBlur);
+  }
+
+  void _handleBlur() {
+    if (!_repeatFocus.hasFocus) {
+      _fromTextFields();
+    }
+  }
+
+  int _clamp(int value) => value.clamp(0, 999);
+
+  void _syncControllers() {
+    _repeatController.text = _clamp(_repeat).toString();
+  }
+
+  void _updateRepeat(
+    int newRepeat, {
+    bool fromTextFields = false,
+  }) {
+    bool syncControllers = !fromTextFields;
+
+    if (newRepeat.isNegative) return;
+
+    final repeat = _clamp(newRepeat);
+
+    setState(() {
+      if (repeat == 0) {
+        _repeat = 1;
+        syncControllers = true;
+      } else {
+        _repeat = repeat;
+      }
+    });
+
+    if (syncControllers) {
+      _syncControllers();
+    }
+
+    widget.onChanged?.call(_repeat);
+  }
+
+  void _fromTextFields() {
+    int repeat = int.tryParse(_repeatController.text) ?? 0;
+
+    _repeatController.text = repeat.toString();
+
+    _repeatController.selection = TextSelection.collapsed(
+      offset: _repeatController.text.length,
+    );
+
+    _updateRepeat(
+      repeat,
+      fromTextFields: true,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Color textColor = Colors.grey.shade700;
+    Color filedColor = Colors.grey.shade200;
+
+    return Row(
+      children: [
+        DefButton.icon(
+          size: .small,
+          icon: Icons.remove,
+          onPressed: () {
+            _updateRepeat(_repeat - 1);
+          },
+          color: textColor,
+        ),
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: DefRadius.standard,
+            color: filedColor,
+          ),
+          width: 50,
+          height: 24,
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  focusNode: _repeatFocus,
+                  controller: _repeatController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(3),
+                  ],
+                  textAlign: TextAlign.right,
+                  textAlignVertical: .center,
+                  style: DefText.n.bold.tabular.c(
+                    textColor,
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: .only(bottom: 15),
+                    floatingLabelBehavior: FloatingLabelBehavior.never,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const .fromLTRB(0, 0, 6, 0),
+                child: Text(
+                  'x',
+                  style: DefText.n.bold.c(textColor),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        DefButton.icon(
+          size: .small,
+          icon: Icons.add,
+          onPressed: () {
+            _updateRepeat(_repeat + 1);
+          },
+          color: textColor,
+        ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _repeatController.dispose();
+    _repeatFocus.dispose();
     super.dispose();
   }
 }

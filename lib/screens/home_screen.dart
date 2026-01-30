@@ -1,9 +1,9 @@
 import 'package:evostream/components/def_button.dart';
 import 'package:evostream/models/workout/workout.dart';
 import 'package:evostream/models/workout/workout_editor_screen.dart';
-import 'package:evostream/models/workout/workout_screen.dart';
-import 'package:evostream/services/sound_service.dart';
+import 'package:evostream/utils/global_utils.dart';
 import 'package:evostream/utils/integer_extension.dart';
+import 'package:evostream/utils/text_style_extension.dart';
 import 'package:flutter/material.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -11,92 +11,94 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Workout initialWorkout = Workout(
-      name: 'Sample',
-      parts: [
-        Prepare(5.s),
-        Work(5.s),
-        Rest(),
-        WorkoutPartGroup(
-          repeat: 3,
-          rest: Rest(5.s),
-        ),
-        Work(3.s),
-        Rest(3.s),
-        WorkoutPartGroup(
-          repeat: 3,
-          rest: Rest(5.s),
-        ),
-        Work(3.s),
-        WorkoutPartGroup(
-          repeat: 2,
-          rest: Rest(5.s),
-        ),
-        Work(3.s),
-        WorkoutPartGroupEnd(),
-        Rest(),
-        Work(3.s),
-        WorkoutPartGroupEnd(),
-        Rest(3.s),
-        Work(3.s),
-        WorkoutPartGroupEnd(),
-        Rest(10.s),
-        Work(5.s),
-        Finish(),
-      ],
-    );
-
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      body: Center(
-        child: Row(
-          spacing: 8,
-          children: [
-            DefButton.flat(
-              onPressed: () async {
-                Workout? newWorkout = await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) {
-                      return WorkoutEditorScreen();
-                    },
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const .symmetric(vertical: 16),
+            child: Column(
+              spacing: 8,
+              children: [
+                Container(
+                  padding: const .symmetric(horizontal: 16),
+                  alignment: .centerLeft,
+                  child: Text(
+                    'Quick start',
+                    style: DefText.xl.black.c(scheme.primary),
                   ),
-                );
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) {
-                      return WorkoutScreen(
-                        workout: newWorkout ?? initialWorkout,
+                ),
+                Padding(
+                  padding: const .all(8),
+                  child: WorkoutEditorWidget(
+                    slotsPreset: [
+                      SimpleSlot(
+                        slotKey: UniqueKey(),
+                        freezed: true,
+                        content: ValueNotifier(
+                          Prepare(5.s),
+                        ),
+                      ),
+                      GroupSlot(
+                        slotKey: UniqueKey(),
+                        freezed: true,
+                        content: ValueNotifier(
+                          const WorkoutPartGroup(repeat: 10),
+                        ),
+                        children: [
+                          SimpleSlot(
+                            slotKey: UniqueKey(),
+                            freezed: true,
+                            content: ValueNotifier(
+                              Work(90.s),
+                            ),
+                          ),
+                          SimpleSlot(
+                            slotKey: UniqueKey(),
+                            freezed: true,
+                            content: ValueNotifier(
+                              Rest(90.s),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SimpleSlot(
+                        slotKey: UniqueKey(),
+                        freezed: true,
+                        content: ValueNotifier(
+                          const Finish(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const .symmetric(horizontal: 16),
+                  alignment: .centerLeft,
+                  child: Text(
+                    'Custom workout',
+                    style: DefText.xl.black.c(scheme.primary),
+                  ),
+                ),
+                Container(
+                  padding: const .symmetric(horizontal: 16),
+                  alignment: .centerRight,
+                  child: DefButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) {
+                            return const WorkoutEditorWidget();
+                          },
+                        ),
                       );
                     },
+                    label: 'Create',
                   ),
-                );
-              },
-              label: 'Indítás',
+                ),
+              ],
             ),
-            DefButton.tonal(
-              onPressed: () async {
-                SoundService().startBeep();
-              },
-              label: 'start',
-            ),
-            DefButton.tonal(
-              onPressed: () async {
-                SoundService().endBeep();
-              },
-              label: 'end',
-            ),
-            DefButton.tonal(
-              onPressed: () async {
-                SoundService().finishBeep();
-              },
-              label: 'finish',
-            ),
-            DefButton.tonal(
-              onPressed: () async {
-                SoundService().countDown();
-              },
-              label: 'cd beep',
-            ),
-          ],
+          ),
         ),
       ),
     );

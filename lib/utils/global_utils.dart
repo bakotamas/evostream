@@ -2,7 +2,7 @@ import 'package:evostream/utils/text_style_extension.dart';
 import 'package:flutter/material.dart';
 
 class DefText {
-  static final TextStyle _ts = TextStyle();
+  static const TextStyle _ts = TextStyle();
   // static TextStyle get ts => _ts;
 
   /// 10 betűméret

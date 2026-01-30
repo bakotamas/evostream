@@ -5,18 +5,22 @@ void main() {
   runApp(const MainApp());
 }
 
+GlobalKey<NavigatorState> nKey = GlobalKey<NavigatorState>();
+
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return  MaterialApp(
+    return MaterialApp(
+      title: 'EvoStream',
+      navigatorKey: nKey,
       debugShowCheckedModeBanner: false,
-      home: HomeScreen(),
+      home: const HomeScreen(),
       theme: ThemeData(
-        progressIndicatorTheme: ProgressIndicatorThemeData(
+        progressIndicatorTheme: const ProgressIndicatorThemeData(
           year2023: false,
-        )
+        ),
       ),
     );
   }
